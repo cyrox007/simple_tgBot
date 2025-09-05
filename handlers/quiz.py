@@ -5,7 +5,7 @@ from aiogram.fsm.context import FSMContext
 from components.keyboards.quiz import generate_quiz_keyboard
 from utils.quiz_data import quiz_data
 from database import get_db_session
-from components.database.quiz_repository import get_quiz_index, update_quiz_index, save_quiz_result, get_correct_answers_count
+from components.database.quiz_repository import clear_user_answers, get_quiz_index, update_quiz_index, save_quiz_result, get_correct_answers_count
 
 router = Router()
 
@@ -18,8 +18,12 @@ async def cmd_quiz(message: types.Message):
 async def new_quiz(message: types.Message):
     user_id = message.from_user.id
     async with get_db_session() as session:
+        # Очищаем предыдущие ответы
+        await clear_user_answers(session, user_id)
         await update_quiz_index(session, user_id, 0)
-        await get_question(message, user_id)
+        await session.commit()
+    
+    await get_question(message, user_id)
 
 async def get_question(message: types.Message, user_id: int):
     async with get_db_session() as session:

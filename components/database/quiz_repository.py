@@ -50,7 +50,8 @@ async def save_user_answer(session: AsyncSession, user_id: int, question_index: 
 
 async def save_quiz_result(session: AsyncSession, user_id: int, username: str, total_questions: int, correct_answers: int):
     """Сохранение результата квиза"""
-    score = int((correct_answers / total_questions) * 100) if total_questions > 0 else 0
+    # Ограничиваем проценты 100%
+    score = min(int((correct_answers / total_questions) * 100), 100) if total_questions > 0 else 0
     
     quiz_result = QuizResult(
         user_id=user_id,
@@ -61,7 +62,6 @@ async def save_quiz_result(session: AsyncSession, user_id: int, username: str, t
         completed_at=datetime.now()
     )
     session.add(quiz_result)
-    await session.commit()
 
 async def get_user_stats(session: AsyncSession, user_id: int):
     """Получение статистики пользователя"""
@@ -97,10 +97,26 @@ async def get_leaderboard(session: AsyncSession, limit: int = 10):
     return result.all()
 
 async def get_correct_answers_count(session: AsyncSession, user_id: int):
-    """Подсчет правильных ответов"""
+    """Подсчет правильных ответов для ТЕКУЩЕГО квиза"""
+    # Находим максимальный question_index для текущего квиза
+    max_question_result = await session.execute(
+        select(func.max(UserAnswer.question_index))
+        .where(UserAnswer.user_id == user_id)
+    )
+    max_question = max_question_result.scalar() or 0
+    
+    # Считаем правильные ответы только для текущего квиза
     result = await session.execute(
         select(func.count(UserAnswer.id))
         .where(UserAnswer.user_id == user_id)
         .where(UserAnswer.is_correct == True)
+        .where(UserAnswer.question_index <= max_question)  # Только текущий квиз
     )
     return result.scalar() or 0
+
+async def clear_user_answers(session: AsyncSession, user_id: int):
+    """Очистка ответов пользователя перед началом нового квиза"""
+    await session.execute(
+        UserAnswer.__table__.delete()
+        .where(UserAnswer.user_id == user_id)
+    )

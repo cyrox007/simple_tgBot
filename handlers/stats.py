@@ -14,13 +14,19 @@ async def cmd_stats(message: types.Message):
         last_result, overall_stats = await get_user_stats(session, user_id)
     
     if last_result:
-        total_quizzes, avg_score, best_score = overall_stats or (0, 0, 0)
+        total_quizzes = overall_stats[0] if overall_stats else 0
+        avg_score = overall_stats[1] if overall_stats else 0
+        best_score = overall_stats[2] if overall_stats else 0
+        
+        # Проверяем корректность данных
+        correct_answers = min(last_result.correct_answers, last_result.total_questions)
+        score = min(last_result.score, 100)
         
         response = (
             f"📊 Ваша статистика:\n\n"
             f"🎯 Последний результат:\n"
-            f"   ✅ {last_result.correct_answers}/{last_result.total_questions} правильных ответов\n"
-            f"   🏆 {last_result.score}% правильных ответов\n"
+            f"   ✅ {correct_answers}/{last_result.total_questions} правильных ответов\n"
+            f"   🏆 {score}% правильных ответов\n"
             f"   📅 {last_result.completed_at.strftime('%Y-%m-%d')}\n\n"
             f"📈 Общая статистика:\n"
             f"   🎮 Пройдено квизов: {total_quizzes}\n"
