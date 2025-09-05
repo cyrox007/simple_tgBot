@@ -1,20 +1,37 @@
-import aiosqlite
-from sqlalchemy import create_engine
 from sqlalchemy.ext.asyncio import create_async_engine, AsyncSession
 from sqlalchemy.orm import sessionmaker
+from contextlib import asynccontextmanager
 
 from settings import config
 from components.models.models import Base
 
-# Для асинхронной работы с aiosqlite
-async def get_async_db():
-    async with aiosqlite.connect(config.DB_PATH) as db:
-        yield db
+# Создаем асинхронный движок
+async_engine = create_async_engine(
+    f'sqlite+aiosqlite:///{config.DB_PATH}',
+    echo=True
+)
 
-# Для SQLAlchemy (опционально)
-async_engine = create_async_engine(f'sqlite+aiosqlite:///{config.DB_PATH}')
-AsyncSessionLocal = sessionmaker(async_engine, class_=AsyncSession, expire_on_commit=False)
+# Создаем асинхронную сессию
+AsyncSessionLocal = sessionmaker(
+    async_engine, 
+    class_=AsyncSession, 
+    expire_on_commit=False
+)
 
 async def init_db():
+    """Инициализация таблиц через SQLAlchemy"""
     async with async_engine.begin() as conn:
         await conn.run_sync(Base.metadata.create_all)
+
+@asynccontextmanager
+async def get_db_session():
+    """Асинхронный контекстный менеджер для работы с сессиями"""
+    session = AsyncSessionLocal()
+    try:
+        yield session
+        await session.commit()
+    except Exception:
+        await session.rollback()
+        raise
+    finally:
+        await session.close()
