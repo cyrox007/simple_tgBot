@@ -60,7 +60,7 @@
 ## 🤖 Как найти бота
 
 **Username:** `@JSITestAIBot`
-**Ссылка для быстрого доступа:** [https://t.me/PythonQuizMasterBot](https://t.me/JSITestAIBot)
+**Ссылка для быстрого доступа:** [https://t.me/JSITestAIBot](https://t.me/JSITestAIBot)
 
 ---
 
