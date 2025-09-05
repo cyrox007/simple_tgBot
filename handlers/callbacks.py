@@ -1,3 +1,4 @@
+import re
 from aiogram import types, Router, F
 
 from handlers.quiz import next_question_or_finish
@@ -7,40 +8,46 @@ from components.database.quiz_repository import get_quiz_index, save_user_answer
 
 router = Router()
 
-@router.callback_query(F.data == "right_answer")
-async def right_answer(callback: types.CallbackQuery):
-    user_id = callback.from_user.id
-    user_answer = callback.message.reply_markup.inline_keyboard[0][0].text
-    
-    async with get_db_session() as session:
-        current_question_index = await get_quiz_index(session, user_id)
-        await save_user_answer(session, user_id, current_question_index, user_answer, is_correct=True)
-    
-    await callback.bot.edit_message_reply_markup(
-        chat_id=callback.from_user.id,
-        message_id=callback.message.message_id,
-        reply_markup=None
-    )
-    
-    await callback.message.answer(f"✅ Вы ответили: {user_answer}\nВерно!")
-    await next_question_or_finish(callback.message, user_id)
+ANSWER_PATTERN = re.compile(r"answer_(\d+)_(\d+)")
 
-@router.callback_query(F.data == "wrong_answer")
-async def wrong_answer(callback: types.CallbackQuery):
+@router.callback_query(F.data.startswith("answer_"))
+async def handle_answer(callback: types.CallbackQuery):
     user_id = callback.from_user.id
-    user_answer = callback.message.reply_markup.inline_keyboard[0][0].text
     
+    # Парсим callback data
+    match = ANSWER_PATTERN.match(callback.data)
+    if not match:
+        await callback.answer("Ошибка обработки ответа")
+        return
+    
+    selected_index = int(match.group(1))
+    correct_index = int(match.group(2))
+    
+    # Получаем данные вопроса
     async with get_db_session() as session:
         current_question_index = await get_quiz_index(session, user_id)
-        await save_user_answer(session, user_id, current_question_index, user_answer, is_correct=False)
     
+    question_data = quiz_data[current_question_index]
+    user_answer_text = question_data['options'][selected_index]
+    correct_answer_text = question_data['options'][correct_index]
+    is_correct = (selected_index == correct_index)
+    
+    # Сохраняем ответ
+    async with get_db_session() as session:
+        await save_user_answer(session, user_id, current_question_index, user_answer_text, is_correct)
+        await session.commit()
+    
+    # Удаляем кнопки
     await callback.bot.edit_message_reply_markup(
         chat_id=callback.from_user.id,
         message_id=callback.message.message_id,
         reply_markup=None
     )
     
-    correct_option = quiz_data[current_question_index]['options'][quiz_data[current_question_index]['correct_option']]
+    # Отправляем результат
+    if is_correct:
+        await callback.message.answer(f"✅ Вы ответили: {user_answer_text}\nВерно!")
+    else:
+        await callback.message.answer(f"❌ Вы ответили: {user_answer_text}\nПравильный ответ: {correct_answer_text}")
     
-    await callback.message.answer(f"❌ Вы ответили: {user_answer}\nПравильный ответ: {correct_option}")
     await next_question_or_finish(callback.message, user_id)
