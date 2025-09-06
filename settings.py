@@ -8,7 +8,7 @@ class Config:
     BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 
     # Замените "YOUR_BOT_TOKEN" на токен, который вы получили от BotFather
-    API_TOKEN = os.getenv('API_TOKEN', 'YOUR_BOT_TOKEN') 
+    API_TOKEN = os.getenv('API_TOKEN', '8406006708:AAHZbRXOc7l_gQWVL99gvwmeV5beY8rmQEE') 
 
     # Зададим имя базы данных
     DB_NAME = os.getenv('DB_NAME', 'quiz_bot.db')
